@@ -7,7 +7,7 @@ import morgan from "morgan";
 import fs from "node:fs";
 
 // -------------- Interfaces ---------------
-interface UserPayload extends JwtPayload{
+interface UserPayload extends JwtPayload {
   id: string;
   username: string;
 }
@@ -20,8 +20,8 @@ interface WSUD extends WebSocket {
 // -------------- Funtions ----------------
 const verifyToken = (token: string) => new Promise<UserPayload | Error>((resolve, reject) => {
   jwt.verify(token, process.env.JWT_SECRET || 'secret', (err, decoded) => {
-    if(err) {
-      if(err.name === 'JsonWebTokenError') {
+    if (err) {
+      if (err.name === 'JsonWebTokenError') {
         reject(new Error('Invalid token'));
       } else {
         reject(new Error('error verifying token'));
@@ -50,7 +50,7 @@ app.get('/', (req, res) => {
 app.post('/register', (req: Request, res: Response) => {
   const { username, password } = req.body;
 
-  if(!username || !password) {
+  if (!username || !password) {
     res.status(400).json({ message: 'Username and password are required' });
     return;
   }
@@ -61,7 +61,7 @@ app.post('/register', (req: Request, res: Response) => {
   }
 
   // validate max user 10 
-  if(JSON.parse(fs.readFileSync('users.json', 'utf-8')).length >= 10) {
+  if (JSON.parse(fs.readFileSync('users.json', 'utf-8')).length >= 10) {
     res.status(400).json({ message: 'Max users reached try again tomorrow' });
     return;
   }
@@ -71,7 +71,7 @@ app.post('/register', (req: Request, res: Response) => {
 
   const userExist = users.find((user: { username: string }) => user.username === username);
 
-  if(userExist) {
+  if (userExist) {
     res.status(400).json({ message: 'User already exists use another username' });
     return;
   }
@@ -92,7 +92,7 @@ app.post('/register', (req: Request, res: Response) => {
 app.post('/login', (req: Request, res: Response) => {
   const { username, password } = req.body;
 
-  if(!username || !password) {
+  if (!username || !password) {
     res.status(400).json({ message: 'Username and password are required' });
     return;
   }
@@ -101,20 +101,20 @@ app.post('/login', (req: Request, res: Response) => {
 
   const user = users.find((user: { username: string }) => user.username === username);
 
-  if(!user) {
+  if (!user) {
     res.status(400).json({ message: 'User or password incorrect' });
     return;
   }
 
   const validPassword = bcrypt.compareSync(password, user.password);
 
-  if(!validPassword) {
+  if (!validPassword) {
     res.status(400).json({ message: 'User or password incorrect' });
     return;
   }
 
   jwt.sign({ id: user.id, username }, process.env.JWT_SECRET || 'secret', { expiresIn: '2h' }, (err, token) => {
-    if(err) {
+    if (err) {
       res.status(500).json({ message: 'Error generating token' });
       return;
     }
@@ -133,22 +133,34 @@ const server = app.listen(PORT, () => {
 const wss = new ws.WebSocketServer({ server });
 
 wss.on('connection', async (ws: WSUD, req) => {
-  const token = req.headers.cookie 
+  function notifyClients() {
+    [...wss.clients].forEach((client: WSUD) => {
+      client.send(JSON.stringify({
+        type: 'onlineUsers',
+        data: [...wss.clients]
+          .filter((client: WSUD) => client.username)
+          .map((client: WSUD) => client.username)
+      }))
+    })
+  }
 
-  if(!token) {
+  const token = req.headers.cookie
+
+  if (!token) {
     ws.close();
     return;
   }
 
   try {
     const decoded = await verifyToken(token.split('=')[1]);
-    if(decoded instanceof Error) {
+    if (decoded instanceof Error) {
       ws.close();
       return;
     }
 
-    ws.username = decoded.username;
     ws.id = decoded.id;
+    ws.username = decoded.username;
+
   } catch (error) {
     console.log(error);
     ws.close();
@@ -163,14 +175,8 @@ wss.on('connection', async (ws: WSUD, req) => {
 
   ws.on('close', () => {
     console.log('Client disconnected');
+    notifyClients();
   });
 
-
-  [...wss.clients].forEach((c: WSUD) => {
-    c.send(JSON.stringify({
-      type: 'client_connected',
-      username: ws.username,
-      id: ws.id
-    }))
-  } )
+  notifyClients();
 });
