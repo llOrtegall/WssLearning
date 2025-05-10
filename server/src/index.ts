@@ -5,6 +5,7 @@ import crypto from "node:crypto";
 import bcrypt from "bcryptjs";
 import morgan from "morgan";
 import fs from "node:fs";
+import cors from "cors";
 
 // -------------- Interfaces ---------------
 interface UserPayload extends JwtPayload {
@@ -38,7 +39,11 @@ const app = express();
 app.disable('x-powered-by')
   .use(express.urlencoded({ extended: true }))
   .use(express.json())
-  .use(morgan("dev"));
+  .use(morgan("dev"))
+  .use(cors({
+    origin: 'http://192.168.1.9:5173',
+    credentials: true
+  }));
 
 const PORT = process.env.PORT || 3000;
 
@@ -47,7 +52,9 @@ app.get('/', (req, res) => {
 });
 
 
-app.post('/register', (req: Request, res: Response) => {
+// ---------------- Auth Endpoints ----------------
+
+app.post('/auth/register', (req: Request, res: Response) => {
   const { username, password } = req.body;
 
   if (!username || !password) {
@@ -89,7 +96,7 @@ app.post('/register', (req: Request, res: Response) => {
   res.status(201).json({ message: 'User registered', username });
 })
 
-app.post('/login', (req: Request, res: Response) => {
+app.post('/auth/login', (req: Request, res: Response) => {
   const { username, password } = req.body;
 
   if (!username || !password) {
@@ -119,9 +126,33 @@ app.post('/login', (req: Request, res: Response) => {
       return;
     }
 
-    res.status(200).cookie('token', token, { sameSite: 'none', secure: false, httpOnly: false, expires: new Date(Date.now() + 2 * 60 * 60 * 1000) }).json({ message: 'Login successful' });
+    res.status(200).cookie('token', token, { sameSite: 'lax', secure: false, httpOnly: false, expires: new Date(Date.now() + 2 * 60 * 60 * 1000) }).json({ message: 'Login successful' });
   });
 
+})
+
+app.get('/auth/profile', async (req: Request, res: Response) => {
+  const token = req.headers.cookie
+
+  if (!token) {
+    res.status(401).json({ message: 'Unauthorized' });
+    return;
+  }
+
+  const tokenValue = token.split('=')[1];
+
+  try {
+    const decoded = await verifyToken(tokenValue);
+    if (decoded instanceof Error) {
+      res.status(401).json({ message: 'Unauthorized' });
+      return;
+    }
+
+    res.status(200).json({ id: decoded.id, username: decoded.username });
+  } catch (error) {
+    console.log(error);
+    res.status(500).json({ message: 'Error verifying token' });
+  }
 })
 
 // ---------------- WebSocket ----------------
