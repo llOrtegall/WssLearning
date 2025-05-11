@@ -155,6 +155,11 @@ app.get('/auth/profile', async (req: Request, res: Response) => {
   }
 })
 
+app.get('/auth/logout', (req: Request, res: Response) => {
+  res.clearCookie('token');
+  res.status(200).json({ message: 'Logout successful' });
+})
+
 // ---------------- WebSocket ----------------
 
 const server = app.listen(PORT, () => {
@@ -163,7 +168,10 @@ const server = app.listen(PORT, () => {
 
 const wss = new ws.WebSocketServer({ server });
 
+
 wss.on('connection', async (ws: WSUD, req) => {
+  console.log('Client connected');
+
   function notifyClients() {
     [...wss.clients].forEach((client: WSUD) => {
       client.send(JSON.stringify({

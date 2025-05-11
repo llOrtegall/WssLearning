@@ -21,10 +21,6 @@ export const AuthContextProvider = ({ children }: { children: React.ReactNode })
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [user, setUser] = useState<User | undefined>(undefined);
 
-  useEffect(() => {
-    login()
-  }, [])
-
   const login = async () => {
     const user = await profileServices()
     setIsAuthenticated(true);
@@ -36,6 +32,10 @@ export const AuthContextProvider = ({ children }: { children: React.ReactNode })
     setIsAuthenticated(false);
     setUser(undefined);
   }
+
+  useEffect(() => {
+    login()
+  }, [])
 
   return (
     <AuthContext.Provider value={{ isAuthenticated, setIsAuthenticated, user, setUser, login, logout }}>

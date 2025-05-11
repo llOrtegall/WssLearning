@@ -11,7 +11,7 @@ export const loginServices = async (username: string, password: string, loginOrR
 
 export const logoutServices = async () => {
   try {
-    await axios.post('/auth/logout')
+    await axios.get('/auth/logout')
   } catch (error) {
     throw error
   }
