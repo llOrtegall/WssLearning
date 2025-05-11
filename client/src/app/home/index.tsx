@@ -1,15 +1,39 @@
 import { useWebSocket } from "../../hooks/useWebSocket";
 import { useAuth } from "../../hooks/useAuth";
-import type { FormEvent } from "react";
+import { useState, type FormEvent } from "react";
 
 const WS_URL = import.meta.env.VITE_WS_URL
 
+interface NewMessageData {
+  content: string;
+  to: string;
+  from: string;
+}
+
+interface OnlineUsersData {
+  id: string;
+  username: string;
+}
+
+interface WsMessage {
+  type: string;
+  data: NewMessageData | OnlineUsersData[];
+}
+
 export default function Home() {
   const { user, logout } = useAuth();
+  const [onlineUsers, setOnlineUsers] = useState<OnlineUsersData[]>([])
 
   
   const handleMessage = (e: MessageEvent) => {
-    console.log(e.data)
+    const data = JSON.parse(e.data) as WsMessage;
+    
+    if(data.type === 'onlineUsers'){
+      const users = data.data as OnlineUsersData[]
+      const filteredUsers = users.filter((u) => u.id !== user?.id)
+      setOnlineUsers(filteredUsers)
+    }
+  
 	}
   
   const ws = useWebSocket(WS_URL, handleMessage)
@@ -45,9 +69,9 @@ export default function Home() {
           </figure>
         </header>
         <ul className="flex-1 flex flex-col gap-2 overflow-y-auto">
-          <li>Chat 1</li>
-          <li>Chat 2</li>
-          <li>Chat 3</li>
+          {onlineUsers?.map((user) => (
+            <li key={user.id}>{user.username}</li>
+          ))}
         </ul>
         <footer>
           <p>{user?.username}</p>

@@ -177,8 +177,11 @@ wss.on('connection', async (ws: WSUD, req) => {
       client.send(JSON.stringify({
         type: 'onlineUsers',
         data: [...wss.clients]
-          .filter((client: WSUD) => client.username)
-          .map((client: WSUD) => client.username)
+          .filter((c: WSUD) => c.username)
+          .map((c: WSUD) => ({
+            id: c.id,
+            username: c.username
+          }))
       }))
     })
   }
